@@ -61,12 +61,37 @@ class ProjectAnalysisResult:
         return sum(f.maintainability.score for f in self.files) / len(self.files)
 
     def to_rows(self) -> List[dict]:
-        """Flatten into File | LOC | Complexity | MI | Smells table rows."""
+        """
+        Flatten into a row shaped to match the Sandouka & Aljamaan dataset's
+        feature columns exactly (loc, lloc, scloc, comments, ..., h1, h2, ...),
+        plus our own extra fields (complexity, maintainability_index, code_smells)
+        appended at the end.
+        """
         rows = []
         for f in self.files:
             rows.append({
-                "file": f.relative_path,
+                # --- fields matching the external dataset's columns ---
                 "loc": f.loc.total_loc,
+                "lloc": f.loc.lloc,
+                "scloc": f.loc.sloc,
+                "comments": f.loc.comments,
+                "single_comments": f.loc.single_comments,
+                "multi_comments": f.loc.multi_comments,
+                "blanks": f.loc.blank_loc,
+                "h1": f.halstead.h1,
+                "h2": f.halstead.h2,
+                "n1": f.halstead.n1,
+                "n2": f.halstead.n2,
+                "vocabulary": f.halstead.vocabulary,
+                "length": f.halstead.length,
+                "calculated_length": f.halstead.calculated_length,
+                "volume": f.halstead.volume,
+                "difficulty": f.halstead.difficulty,
+                "effort": f.halstead.effort,
+                "time": f.halstead.time,
+                "bugs": f.halstead.bugs,
+                # --- our own extra fields, not in the external dataset ---
+                "file": f.relative_path,
                 "complexity": round(f.complexity.average_complexity, 2),
                 "maintainability_index": round(f.maintainability.score, 2),
                 "code_smells": f.smell_count,
