@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Analyse a Python project</h2>
+  <p>Upload a single <code>.py</code> file or a <code>.zip</code> of your project.</p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form action="/analyze" method="post" enctype="multipart/form-data">
+    <input type="file" name="project" accept=".py,.zip" required>
+    <button type="submit">Analyse</button>
+  </form>
+</div>
+{% endblock %}

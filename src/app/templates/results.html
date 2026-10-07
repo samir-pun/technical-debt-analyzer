@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Results - {{ result.project_name }}{% endblock %}
+{% block content %}
+{% set gate = result.quality_gate %}
+<div class="card">
+  <h2>{{ result.project_name }}</h2>
+  <p>Quality gate: <span class="badge {{ gate.status }}">{{ gate.status }}</span>
+     &nbsp; Files: {{ gate.total_files }} &nbsp; Average risk score: {{ gate.average_score }}</p>
+  <p>HIGH: {{ gate.high }} · MEDIUM: {{ gate.medium }} · LOW: {{ gate.low }}</p>
+  {% if gate.reasons %}
+  <ul>{% for reason in gate.reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>Risk ranking</h3>
+  <table>
+    <tr><th>#</th><th>File</th><th>Risk</th><th>Score</th><th>Smells</th><th>LOC</th><th>Complexity</th><th>MI</th></tr>
+    {% for f in result.files %}
+    <tr>
+      <td>{{ f.rank }}</td>
+      <td>{{ f.file }}</td>
+      <td><span class="badge {{ f.risk_label }}">{{ f.risk_label }}</span></td>
+      <td>{{ f.composite_score }}</td>
+      <td>{{ f.code_smells }}</td>
+      <td>{{ f.loc }}</td>
+      <td>{{ f.complexity }}</td>
+      <td>{{ f.maintainability_index }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+<p><a href="/">&larr; Analyse another project</a></p>
+{% endblock %}
