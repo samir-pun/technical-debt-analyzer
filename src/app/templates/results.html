@@ -30,5 +30,15 @@
     {% endfor %}
   </table>
 </div>
+
+<div class="card">
+  <h3>Recommendations</h3>
+  {% for f in result.files %}
+  <h4>{{ f.rank }}. {{ f.file }} <span class="badge {{ f.risk_label }}">{{ f.risk_label }}</span></h4>
+  <ul>
+    {% for rec in f.recommendations %}<li>{{ rec }}</li>{% endfor %}
+  </ul>
+  {% endfor %}
+</div>
 <p><a href="/">&larr; Analyse another project</a></p>
 {% endblock %}

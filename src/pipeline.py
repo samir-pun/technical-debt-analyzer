@@ -3,7 +3,7 @@ pipeline.py
 
 Single entry point for the whole system:
     input (folder / .zip / .py) -> analysis -> ML risk scoring
-    -> ranking -> quality gate.
+    -> ranking -> recommendations -> quality gate.
 
 The dashboard only needs to call predict_project().
 
@@ -17,25 +17,43 @@ import shutil
 import sys
 import tempfile
 import zipfile
+from collections import Counter
 from pathlib import Path
 
 from .analyzer.analyzer import analyze_project
+from .analyzer.parser import IGNORED_DIR_NAMES
 from .ml.quality_gate import evaluate_quality_gate
 from .ml.risk import compute_risk
+from .recommendations import generate_recommendations
+
+MAX_EXTRACTED_BYTES = 200 * 1024 * 1024  # cap on uncompressed source code
 
 
 def _extract_zip(zip_path: Path, dest: Path) -> None:
-    """Extract a zip safely, skipping macOS metadata and unsafe paths."""
+    """Extract only .py files from a zip, safely.
+
+    Skips macOS metadata, ignored folders (venv, .git, node_modules, ...),
+    unsafe paths, and refuses archives whose source code is too large.
+    """
     dest = dest.resolve()
+    total = 0
     with zipfile.ZipFile(zip_path) as zf:
-        for member in zf.namelist():
-            # macOS adds resource-fork junk to zips; it is not real source code.
-            if member.startswith("__MACOSX/") or Path(member).name.startswith("._"):
+        for info in zf.infolist():
+            member = info.filename
+            path = Path(member)
+            if info.is_dir() or not member.endswith(".py"):
+                continue
+            if member.startswith("__MACOSX/") or path.name.startswith("._"):
+                continue
+            if any(part in IGNORED_DIR_NAMES for part in path.parts):
                 continue
             target = (dest / member).resolve()
             if not target.is_relative_to(dest):
                 raise ValueError(f"Unsafe path in zip file: {member}")
-            zf.extract(member, dest)
+            total += info.file_size
+            if total > MAX_EXTRACTED_BYTES:
+                raise ValueError("Archive contains too much source code (limit 200 MB).")
+            zf.extract(info, dest)
 
 
 def predict_project(input_path: str | Path) -> dict:
@@ -61,15 +79,18 @@ def predict_project(input_path: str | Path) -> dict:
         analysis = analyze_project(project_dir)
 
         files = []
-        for row in analysis.to_rows():
+        for file_result, row in zip(analysis.files, analysis.to_rows()):
             risk = compute_risk(row)
-            files.append({
+            entry = {
                 **risk,
                 "loc": row["loc"],
                 "complexity": row["complexity"],
                 "maintainability_index": row["maintainability_index"],
                 "code_smells": row["code_smells"],
-            })
+                "smell_breakdown": dict(Counter(s.type for s in file_result.smells)),
+            }
+            entry["recommendations"] = generate_recommendations(entry)
+            files.append(entry)
 
     # Highest risk first, so the developer knows what to fix first.
     files.sort(key=lambda f: f["composite_score"], reverse=True)

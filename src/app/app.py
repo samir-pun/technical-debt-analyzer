@@ -20,9 +20,18 @@ from werkzeug.utils import secure_filename
 from ..pipeline import predict_project
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB upload limit
+app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 MB upload limit
 
 ALLOWED_SUFFIXES = {".py", ".zip"}
+
+
+@app.errorhandler(413)
+def too_large(_error):
+    return render_template(
+        "index.html",
+        error="That upload is too large (limit 500 MB). Re-zip the project "
+              "without venv/, .git/ or node_modules/ folders.",
+    ), 413
 
 
 @app.route("/", methods=["GET"])
