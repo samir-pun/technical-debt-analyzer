@@ -14,15 +14,18 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from flask import Flask, render_template, request
+from flask import Flask, Response, render_template, request
+from plotly.offline import get_plotlyjs
 from werkzeug.utils import secure_filename
 
 from ..pipeline import predict_project
+from .charts import build_charts
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 MB upload limit
 
 ALLOWED_SUFFIXES = {".py", ".zip"}
+_PLOTLY_JS = None
 
 
 @app.errorhandler(413)
@@ -32,6 +35,19 @@ def too_large(_error):
         error="That upload is too large (limit 500 MB). Re-zip the project "
               "without venv/, .git/ or node_modules/ folders.",
     ), 413
+
+
+@app.route("/plotly.js")
+def plotly_js():
+    """Serve plotly.js from the installed package so charts work offline."""
+    global _PLOTLY_JS
+    if _PLOTLY_JS is None:
+        _PLOTLY_JS = get_plotlyjs()
+    return Response(
+        _PLOTLY_JS,
+        mimetype="application/javascript",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 @app.route("/", methods=["GET"])
@@ -60,7 +76,14 @@ def analyze():
         except (ValueError, FileNotFoundError) as exc:
             return render_template("index.html", error=str(exc)), 400
 
-    return render_template("results.html", result=result)
+    try:
+        charts = build_charts(result)
+    except Exception:
+        # Charts are optional: log the problem, but still show the results.
+        app.logger.exception("Chart generation failed")
+        charts = {}
+
+    return render_template("results.html", result=result, charts=charts)
 
 
 if __name__ == "__main__":

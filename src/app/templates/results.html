@@ -2,43 +2,81 @@
 {% block title %}Results - {{ result.project_name }}{% endblock %}
 {% block content %}
 {% set gate = result.quality_gate %}
-<div class="card">
-  <h2>{{ result.project_name }}</h2>
-  <p>Quality gate: <span class="badge {{ gate.status }}">{{ gate.status }}</span>
-     &nbsp; Files: {{ gate.total_files }} &nbsp; Average risk score: {{ gate.average_score }}</p>
-  <p>HIGH: {{ gate.high }} · MEDIUM: {{ gate.medium }} · LOW: {{ gate.low }}</p>
+<style>
+  .charts { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); margin-bottom: 20px; }
+  .charts .panel { margin-bottom: 0; min-width: 0; }
+  .chart-note { color: var(--muted); font-size: 13px; margin: -8px 0 16px; }
+</style>
+
+<h1 class="page-title">{{ result.project_name }}</h1>
+
+<section class="stats">
+  <div class="stat"><div class="stat-label">Quality gate</div><div class="stat-value"><span class="badge {{ gate.status }}">{{ gate.status }}</span></div></div>
+  <div class="stat"><div class="stat-label">Files analysed</div><div class="stat-value">{{ gate.total_files }}</div></div>
+  <div class="stat"><div class="stat-label">Average risk score</div><div class="stat-value">{{ gate.average_score }}</div></div>
+  <div class="stat"><div class="stat-label">High risk</div><div class="stat-value c-high">{{ gate.high }}</div></div>
+  <div class="stat"><div class="stat-label">Medium risk</div><div class="stat-value c-medium">{{ gate.medium }}</div></div>
+  <div class="stat"><div class="stat-label">Low risk</div><div class="stat-value c-low">{{ gate.low }}</div></div>
+</section>
+
+<div class="panel">
+  <h3>Quality gate</h3>
   {% if gate.reasons %}
   <ul>{% for reason in gate.reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+  {% else %}
+  <p>All quality gate rules passed.</p>
   {% endif %}
 </div>
 
-<div class="card">
+{% if charts.distribution %}
+<script src="/plotly.js"></script>
+{% if charts.note %}<p class="chart-note">{{ charts.note }}</p>{% endif %}
+<div class="charts">
+  <div class="panel">{{ charts.distribution | safe }}</div>
+  <div class="panel">{{ charts.scores | safe }}</div>
+  <div class="panel">{{ charts.complexity | safe }}</div>
+  <div class="panel">{{ charts.smells | safe }}</div>
+</div>
+<div class="panel">{{ charts.heatmap | safe }}</div>
+{% endif %}
+
+<div class="panel">
   <h3>Risk ranking</h3>
-  <table>
-    <tr><th>#</th><th>File</th><th>Risk</th><th>Score</th><th>Smells</th><th>LOC</th><th>Complexity</th><th>MI</th></tr>
-    {% for f in result.files %}
-    <tr>
-      <td>{{ f.rank }}</td>
-      <td>{{ f.file }}</td>
-      <td><span class="badge {{ f.risk_label }}">{{ f.risk_label }}</span></td>
-      <td>{{ f.composite_score }}</td>
-      <td>{{ f.code_smells }}</td>
-      <td>{{ f.loc }}</td>
-      <td>{{ f.complexity }}</td>
-      <td>{{ f.maintainability_index }}</td>
-    </tr>
-    {% endfor %}
-  </table>
+  <div class="table-wrap">
+    <table>
+      <tr><th>#</th><th>File</th><th>Risk</th><th>Level</th><th>Score</th><th>Smells</th><th>LOC</th><th>Complexity</th><th>MI</th></tr>
+      {% for f in result.files %}
+      <tr>
+        <td>{{ f.rank }}</td>
+        <td class="file">{{ f.file }}</td>
+        <td><span class="badge {{ f.risk_label }}">{{ f.risk_label }}</span></td>
+        <td><svg class="bar {{ f.risk_label }}" width="110" height="8"><rect class="fill" width="{{ (f.composite_score * 110) | round | int }}" height="8"></rect></svg></td>
+        <td>{{ f.composite_score }}</td>
+        <td>{{ f.code_smells }}</td>
+        <td>{{ f.loc }}</td>
+        <td>{{ f.complexity }}</td>
+        <td>{{ f.maintainability_index }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
 </div>
 
-<div class="card">
-  <h3>Recommendations</h3>
+<div class="panel">
+  <h3>File details and recommendations</h3>
   {% for f in result.files %}
-  <h4>{{ f.rank }}. {{ f.file }} <span class="badge {{ f.risk_label }}">{{ f.risk_label }}</span></h4>
-  <ul>
-    {% for rec in f.recommendations %}<li>{{ rec }}</li>{% endfor %}
-  </ul>
+  <details {% if loop.first %}open{% endif %}>
+    <summary>{{ f.rank }}. {{ f.file }} <span class="badge {{ f.risk_label }}">{{ f.risk_label }}</span></summary>
+    <p>LOC {{ f.loc }} · complexity {{ f.complexity }} · maintainability index {{ f.maintainability_index }} · model probability: large class {{ f.large_class_probability }}, long method {{ f.long_method_probability }}</p>
+    {% if f.smell_breakdown %}
+    <p>{% for name, count in f.smell_breakdown.items() %}<span class="chip">{{ name }}: {{ count }}</span>{% endfor %}</p>
+    {% else %}
+    <p>No smells detected.</p>
+    {% endif %}
+    <ul>{% for rec in f.recommendations %}<li>{{ rec }}</li>{% endfor %}</ul>
+  </details>
   {% endfor %}
 </div>
-<p><a href="/">&larr; Analyse another project</a></p>
+
+<p><a class="btn" href="/">Analyse another project</a></p>
 {% endblock %}

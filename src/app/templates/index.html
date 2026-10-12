@@ -1,12 +1,92 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">
-  <h2>Analyse a Python project</h2>
-  <p>Upload a single <code>.py</code> file or a <code>.zip</code> of your project.</p>
-  {% if error %}<div class="error">{{ error }}</div>{% endif %}
-  <form action="/analyze" method="post" enctype="multipart/form-data">
-    <input type="file" name="project" accept=".py,.zip" required>
-    <button type="submit">Analyse</button>
-  </form>
+<section class="hero">
+  <h1>Python Technical Debt Analyzer</h1>
+  <p>Upload a Python file or a zipped project. Get a ranked risk report, a quality gate verdict and refactoring advice.</p>
+</section>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<form id="upload-form" action="/analyze" method="post" enctype="multipart/form-data">
+  <label id="dropzone" class="dropzone" for="file-input">
+    <input id="file-input" type="file" name="project" accept=".py,.zip" hidden>
+    <div class="dz-title">Select File</div>
+    <div class="dz-sub" id="dz-text">Browse or drag &amp; drop a .py or .zip file here</div>
+  </label>
+  <div class="actions">
+    <button id="analyse-btn" class="btn" type="submit" disabled>Analyse project</button>
+  </div>
+</form>
+
+<h2 class="section">How it works</h2>
+<p class="section-sub">Four steps, no setup.</p>
+<div class="grid">
+  <div class="card"><div class="step-num">1</div><h3>Prepare</h3><p>Use a single .py file, or zip your project folder.</p></div>
+  <div class="card"><div class="step-num">2</div><h3>Upload</h3><p>Drag the file onto the box above, or click to browse.</p></div>
+  <div class="card"><div class="step-num">3</div><h3>Analyse</h3><p>Metrics, code smells and model predictions are computed for every file.</p></div>
+  <div class="card"><div class="step-num">4</div><h3>Review</h3><p>See the quality gate verdict, the risk ranking and what to fix first.</p></div>
 </div>
+
+<h2 class="section">What happens to your code</h2>
+<p class="section-sub">Four stages, each one explainable.</p>
+<div class="grid">
+  <div class="card"><h3>Static analysis</h3><p>Python's AST and Radon measure lines of code, cyclomatic complexity, Halstead metrics and the maintainability index.</p></div>
+  <div class="card"><h3>Code smells</h3><p>Rule-based detectors find long functions, magic numbers, poor naming and duplicated code.</p></div>
+  <div class="card"><h3>Machine learning</h3><p>Random Forest models trained on a published Python code smell dataset predict Large Class and Long Method smells.</p></div>
+  <div class="card"><h3>Quality gate</h3><p>File scores combine into a LOW, MEDIUM or HIGH rating, and the project passes or fails the gate.</p></div>
+</div>
+
+<h2 class="section">FAQ</h2>
+<p class="section-sub">&nbsp;</p>
+<details>
+  <summary>What files can I upload?</summary>
+  <p>A single .py file or a .zip archive. Inside a zip only .py files are analysed, and folders such as venv, .git and node_modules are skipped.</p>
+</details>
+<details>
+  <summary>Is there a size limit?</summary>
+  <p>Uploads can be up to 500 MB. Archives with more than 200 MB of source code are rejected.</p>
+</details>
+<details>
+  <summary>What happens to my files?</summary>
+  <p>They are analysed on the machine running this app and deleted as soon as the analysis finishes.</p>
+</details>
+<details>
+  <summary>How is the risk score calculated?</summary>
+  <p>It is a weighted score: 25% model-predicted smell probability, 25% maintainability, 15% complexity and 35% detected smell count. Below 0.33 is LOW, below 0.66 is MEDIUM, and anything higher is HIGH.</p>
+</details>
+
+<script>
+  const input = document.getElementById("file-input");
+  const zone = document.getElementById("dropzone");
+  const text = document.getElementById("dz-text");
+  const button = document.getElementById("analyse-btn");
+  const form = document.getElementById("upload-form");
+  const overlay = document.getElementById("loading");
+
+  function showFile() {
+    if (input.files.length === 0) { return; }
+    const f = input.files[0];
+    const mb = (f.size / (1024 * 1024)).toFixed(2);
+    text.textContent = f.name + "  (" + mb + " MB)";
+    button.disabled = false;
+  }
+
+  input.addEventListener("change", showFile);
+
+  ["dragenter", "dragover"].forEach(function (ev) {
+    zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add("over"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove("over"); });
+  });
+  zone.addEventListener("drop", function (e) {
+    if (e.dataTransfer.files.length > 0) {
+      input.files = e.dataTransfer.files;
+      showFile();
+    }
+  });
+
+  form.addEventListener("submit", function () { overlay.classList.add("show"); });
+  window.addEventListener("pageshow", function () { overlay.classList.remove("show"); });
+</script>
 {% endblock %}
