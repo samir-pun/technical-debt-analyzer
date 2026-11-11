@@ -3,9 +3,13 @@
 {% block content %}
 {% set gate = result.quality_gate %}
 <style>
-  .charts { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); margin-bottom: 20px; }
-  .charts .panel { margin-bottom: 0; min-width: 0; }
-  .chart-note { color: var(--muted); font-size: 13px; margin: -8px 0 16px; }
+  /* Wider page on this view so each chart has room. */
+  main { max-width: 1160px; }
+  .nav-inner { max-width: 1160px; }
+  .charts-box { display: none; }
+  .charts-box.open { display: block; }
+  .charts-box .panel { margin-bottom: 20px; min-width: 0; }
+  .chart-note { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
 </style>
 
 <h1 class="page-title">{{ result.project_name }}</h1>
@@ -27,18 +31,6 @@
   <p>All quality gate rules passed.</p>
   {% endif %}
 </div>
-
-{% if charts.distribution %}
-<script src="/plotly.js"></script>
-{% if charts.note %}<p class="chart-note">{{ charts.note }}</p>{% endif %}
-<div class="charts">
-  <div class="panel">{{ charts.distribution | safe }}</div>
-  <div class="panel">{{ charts.scores | safe }}</div>
-  <div class="panel">{{ charts.complexity | safe }}</div>
-  <div class="panel">{{ charts.smells | safe }}</div>
-</div>
-<div class="panel">{{ charts.heatmap | safe }}</div>
-{% endif %}
 
 <div class="panel">
   <h3>Risk ranking</h3>
@@ -77,6 +69,48 @@
   </details>
   {% endfor %}
 </div>
+
+{% if charts.distribution %}
+<div class="panel">
+  <h3>Charts</h3>
+  <p>Five views of the same results, one per row: files per risk level, score and complexity per file, smells by type, and what drives each score.</p>
+  <button id="toggle-charts" class="btn" type="button" aria-controls="charts-box" aria-expanded="false">View charts</button>
+</div>
+
+<script src="/plotly.js"></script>
+<div id="charts-box" class="charts-box">
+  {% if charts.note %}<p class="chart-note">{{ charts.note }}</p>{% endif %}
+  <div class="panel">{{ charts.distribution | safe }}</div>
+  <div class="panel">{{ charts.scores | safe }}</div>
+  <div class="panel">{{ charts.complexity | safe }}</div>
+  <div class="panel">{{ charts.smells | safe }}</div>
+  <div class="panel">{{ charts.heatmap | safe }}</div>
+</div>
+
+<script>
+  const toggle = document.getElementById("toggle-charts");
+  const box = document.getElementById("charts-box");
+
+  function fit() {
+    document.querySelectorAll("#charts-box .js-plotly-plot").forEach(function (el) {
+      Plotly.Plots.resize(el);
+    });
+  }
+
+  toggle.addEventListener("click", function () {
+    const opening = !box.classList.contains("open");
+    box.classList.toggle("open", opening);
+    toggle.textContent = opening ? "Hide charts" : "View charts";
+    toggle.setAttribute("aria-expanded", opening ? "true" : "false");
+    if (opening) {
+      // Plotly sizes charts wrongly inside a hidden box, so resize once it is visible.
+      requestAnimationFrame(fit);
+      setTimeout(fit, 200);
+      box.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  });
+</script>
+{% endif %}
 
 <p><a class="btn" href="/">Analyse another project</a></p>
 {% endblock %}

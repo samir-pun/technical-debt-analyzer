@@ -12,23 +12,22 @@ from typing import Dict, List
 
 import plotly.graph_objects as go
 
-RISK_COLORS = {"LOW": "#1f9d55", "MEDIUM": "#d98a00", "HIGH": "#d92d20"}
-SMELL_COLORS = ["#3b5bdb", "#7048e8", "#0ca678", "#f08c00", "#868e96"]
+# Muted palette that matches the page (see :root in base.html).
+RISK_COLORS = {"LOW": "#3d7a4f", "MEDIUM": "#c28a1d", "HIGH": "#b3402a"}
+SMELL_COLORS = ["#2b2926", "#4f6d7a", "#7a8f6a", "#a9826b", "#9a937f"]
+INK = "#1f1d1a"
+MUTED = "#6b665c"
+GRID = "#e2ddd0"
 MAX_FILES_SHOWN = 15
 MAX_HEATMAP_FILES = 20
 CONFIG = {"displayModeBar": False, "responsive": True}
-HEATMAP_COLUMNS = [
-    "Model smell probability",
-    "Maintainability risk",
-    "Complexity",
-    "Smell count",
-    "Composite score",
-]
+HEATMAP_COLUMNS = ["Model", "Maintainability", "Complexity", "Smells", "Score"]
 
 
 def _short(path: str) -> str:
-    parts = path.replace("\\", "/").split("/")
-    return "/".join(parts[-2:])
+    """File name only (long labels squeeze the plot area)."""
+    name = path.replace("\\", "/").split("/")[-1]
+    return name if len(name) <= 30 else name[:27] + "..."
 
 
 def _label(f: dict) -> str:
@@ -44,24 +43,27 @@ def _html(fig: go.Figure) -> str:
     return fig.to_html(full_html=False, include_plotlyjs=False, config=CONFIG)
 
 
-def _style(fig: go.Figure, title: str, height: int) -> go.Figure:
+def _style(fig: go.Figure, title: str, height: int, bargap: float = 0.35) -> go.Figure:
     fig.update_layout(
-        title=dict(text=title, x=0, font=dict(size=15)),
+        title=dict(text=title, x=0, font=dict(size=16, color=INK)),
         height=height,
-        margin=dict(l=10, r=20, t=50, b=40),
+        margin=dict(l=10, r=50, t=60, b=44),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(
-            family="-apple-system, Segoe UI, Roboto, Arial, sans-serif",
-            size=12,
-            color="#1b2330",
+            family="ui-monospace, SF Mono, Menlo, Consolas, monospace",
+            size=13,
+            color=INK,
         ),
+        bargap=bargap,
     )
+    fig.update_xaxes(gridcolor=GRID, zeroline=False, linecolor=GRID)
+    fig.update_yaxes(zeroline=False, linecolor=GRID)
     return fig
 
 
 def _bar_height(n: int) -> int:
-    return max(260, 30 * n + 120)
+    return max(380, 44 * n + 150)
 
 
 def _distribution(gate: dict) -> str:
@@ -79,7 +81,7 @@ def _distribution(gate: dict) -> str:
     fig.update_yaxes(range=[0, max(counts) * 1.25 + 1])
     if max(counts) <= 10:
         fig.update_yaxes(dtick=1)
-    return _html(_style(fig, "Risk distribution (number of files)", 340))
+    return _html(_style(fig, "How many files at each risk level", 360, bargap=0.6))
 
 
 def _scores(files: List[dict]) -> str:
@@ -94,13 +96,13 @@ def _scores(files: List[dict]) -> str:
         customdata=[f["file"] for f in files],
         hovertemplate="%{customdata}<br>score %{x:.3f}<extra></extra>",
     ))
-    fig.add_vline(x=0.33, line_dash="dash", line_color="#8896ab",
+    fig.add_vline(x=0.33, line_dash="dash", line_color=MUTED,
                   annotation_text="MEDIUM", annotation_position="top")
-    fig.add_vline(x=0.66, line_dash="dash", line_color="#8896ab",
+    fig.add_vline(x=0.66, line_dash="dash", line_color=MUTED,
                   annotation_text="HIGH", annotation_position="top")
     fig.update_xaxes(range=[0, 1.05])
     fig.update_yaxes(autorange="reversed", automargin=True)
-    return _html(_style(fig, "Composite risk score by file", _bar_height(len(files))))
+    return _html(_style(fig, "Risk score per file", _bar_height(len(files))))
 
 
 def _complexity(files: List[dict]) -> str:
@@ -116,11 +118,11 @@ def _complexity(files: List[dict]) -> str:
         customdata=[f["file"] for f in files],
         hovertemplate="%{customdata}<br>complexity %{x}<extra></extra>",
     ))
-    fig.add_vline(x=10, line_dash="dash", line_color="#8896ab",
+    fig.add_vline(x=10, line_dash="dash", line_color=MUTED,
                   annotation_text="moderate (10)", annotation_position="top")
     fig.update_xaxes(range=[0, max(12, max(values) * 1.15)])
     fig.update_yaxes(autorange="reversed", automargin=True)
-    return _html(_style(fig, "Average cyclomatic complexity by file", _bar_height(len(files))))
+    return _html(_style(fig, "Average complexity per file", _bar_height(len(files))))
 
 
 def _smells(files: List[dict]) -> str:
@@ -137,9 +139,11 @@ def _smells(files: List[dict]) -> str:
             orientation="h",
             marker_color=SMELL_COLORS[i % len(SMELL_COLORS)],
         )
-    fig.update_layout(barmode="stack", legend=dict(orientation="h", y=-0.15))
+    fig.update_layout(barmode="stack", legend=dict(orientation="h", y=-0.2))
     fig.update_yaxes(autorange="reversed", automargin=True)
-    return _html(_style(fig, "Code smells by file", _bar_height(len(files)) + 30))
+    _style(fig, "Smells per file, by type", _bar_height(len(files)) + 50)
+    fig.update_layout(margin=dict(l=10, r=50, t=60, b=100))
+    return _html(fig)
 
 
 def _heatmap(files: List[dict]) -> str:
@@ -167,14 +171,15 @@ def _heatmap(files: List[dict]) -> str:
         y=[_label(f) for f in files],
         text=text,
         texttemplate="%{text}",
-        colorscale=[[0, "#1f9d55"], [0.5, "#f2c94c"], [1, "#d92d20"]],
+        colorscale=[[0, "#cfe0cf"], [0.5, "#ecd9a0"], [1, "#b3402a"]],
         zmin=0,
         zmax=1,
-        colorbar=dict(title=dict(text="Risk (0-1)")),
+        colorbar=dict(title=dict(text="risk"), thickness=14, len=0.9),
         hovertemplate="%{y}<br>%{x}: %{text}<extra></extra>",
     ))
     fig.update_yaxes(autorange="reversed", automargin=True)
-    return _html(_style(fig, "Risk factor heatmap (green = low risk, red = high risk)", _bar_height(len(files)) + 40))
+    return _html(_style(fig, "What drives each file's score (0 = low risk, 1 = high risk)",
+                        _bar_height(len(files)) + 30))
 
 
 def build_charts(result: dict) -> Dict[str, str]:
