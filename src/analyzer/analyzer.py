@@ -2,8 +2,9 @@
 analyzer.py
 
 The single public entry point for the static analysis engine.
-Combines parsing (Phase 3) + metrics (Phase 4) + smells (Phase 5)
-into one structured result per file, and per project.
+Combines parsing + metrics + smell detection into one structured result
+per file and per project. Files that cannot be parsed are listed under
+`skipped` and get no metrics and no risk score.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from .smells.models import Smell
 
 @dataclass
 class FileAnalysisResult:
-    """All metrics + smells for a single file — one row of the dataset."""
+    """All metrics + smells for a single file: one row of the dataset."""
     relative_path: str
     loc: LocResult
     complexity: ComplexityResult
@@ -41,6 +42,8 @@ class ProjectAnalysisResult:
     """Aggregate result for an entire project."""
     project_name: str
     files: List[FileAnalysisResult] = field(default_factory=list)
+    # Files that could not be parsed: [{"file": ..., "error": ...}]
+    skipped: List[dict] = field(default_factory=list)
 
     @property
     def total_files(self) -> int:
@@ -62,10 +65,8 @@ class ProjectAnalysisResult:
 
     def to_rows(self) -> List[dict]:
         """
-        Flatten into a row shaped to match the Sandouka & Aljamaan dataset's
-        feature columns exactly (loc, lloc, scloc, comments, ..., h1, h2, ...),
-        plus our own extra fields (complexity, maintainability_index, code_smells)
-        appended at the end.
+        Flatten into rows shaped to match the Sandouka & Aljamaan dataset's
+        feature columns exactly, plus our own extra fields appended at the end.
         """
         rows = []
         for f in self.files:
@@ -100,14 +101,14 @@ class ProjectAnalysisResult:
 
 
 def _analyze_single_file(parsed_file: ParsedFile) -> FileAnalysisResult:
-    smells = run_all_detectors(parsed_file) if parsed_file.tree else []
+    """Analyse one successfully parsed file."""
     return FileAnalysisResult(
         relative_path=parsed_file.relative_path,
         loc=calculate_loc(parsed_file.source),
         complexity=calculate_complexity(parsed_file.source),
         maintainability=calculate_maintainability(parsed_file.source),
         halstead=calculate_halstead(parsed_file.source),
-        smells=smells,
+        smells=run_all_detectors(parsed_file),
     )
 
 
@@ -118,6 +119,13 @@ def analyze_project(input_path: str | Path) -> ProjectAnalysisResult:
 
     result = ProjectAnalysisResult(project_name=input_path.name)
     for parsed_file in parsed_files:
+        if parsed_file.tree is None:
+            # Unparseable: report it, but never score it.
+            result.skipped.append({
+                "file": parsed_file.relative_path,
+                "error": parsed_file.parse_error or "Could not be parsed",
+            })
+            continue
         result.files.append(_analyze_single_file(parsed_file))
 
     return result

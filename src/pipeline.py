@@ -101,6 +101,7 @@ def predict_project(input_path: str | Path) -> dict:
     return {
         "project_name": project_name,
         "files": files,
+        "skipped": analysis.skipped,
         "quality_gate": evaluate_quality_gate(files),
     }
 
@@ -112,6 +113,8 @@ def _print_report(result: dict) -> None:
     for f in result["files"]:
         print(f"{f['rank']:<5}{f['risk_label']:<8}{f['composite_score']:<8}"
               f"{f['code_smells']:<8}{f['file']}")
+    for s in result["skipped"]:
+        print(f"Not analysed: {s['file']} ({s['error']})")
     gate = result["quality_gate"]
     print(f"\nQuality gate: {gate['status']}  (average score {gate['average_score']})")
     for reason in gate["reasons"]:
