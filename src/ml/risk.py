@@ -63,14 +63,15 @@ def compute_smell_probabilities(row: dict) -> dict:
     }
 
 
-def compute_risk(
+def score_file(
     row: dict,
+    probs: dict,
     weights: dict | None = None,
     thresholds: tuple[float, float] | None = None,
 ) -> dict:
     """
-    Combine ML smell predictions with the analyser's own metrics into one
-    composite risk score (0-1) and a LOW / MEDIUM / HIGH label.
+    Turn a file's metrics and its model probabilities into a 0-1 composite
+    score and a LOW / MEDIUM / HIGH label. No models are run here.
 
     weights and thresholds default to the values in src/config.py. Passing
     others lets an experiment re-score the same files without editing code.
@@ -81,7 +82,6 @@ def compute_risk(
     weights = weights or config.RISK_WEIGHTS
     low_max, medium_max = thresholds or (config.LOW_MAX, config.MEDIUM_MAX)
 
-    probs = compute_smell_probabilities(row)
     smell_probability = (probs["large_class_probability"] + probs["long_method_probability"]) / 2
 
     maintainability_factor = _clamp((100 - row["maintainability_index"]) / 100)
@@ -108,3 +108,12 @@ def compute_risk(
         "risk_label": risk_label,
         **probs,
     }
+
+
+def compute_risk(
+    row: dict,
+    weights: dict | None = None,
+    thresholds: tuple[float, float] | None = None,
+) -> dict:
+    """Run both models on a file, then score it."""
+    return score_file(row, compute_smell_probabilities(row), weights, thresholds)
