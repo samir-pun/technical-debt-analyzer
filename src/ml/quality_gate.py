@@ -1,20 +1,17 @@
 """
 quality_gate.py
 
-Project-level PASS/FAIL decision built on per-file risk results
-(proposal deliverable: quality gate).
+Project-level PASS / FAIL decision built on per-file risk results.
 
-Thresholds are configurable design decisions, modelled on the
-threshold-based quality gates used by tools such as SonarQube.
+The limits live in src/config.py. They are design decisions, modelled on
+the threshold-based quality gates used by tools such as SonarQube.
 """
 
 from __future__ import annotations
 
 from typing import List
 
-MAX_HIGH_RISK_FILES = 0           # any HIGH-risk file fails the gate
-MAX_ELEVATED_RATIO = 0.5          # max share of MEDIUM + HIGH files
-MAX_AVERAGE_SCORE = 0.5           # max average composite score
+from .. import config
 
 
 def evaluate_quality_gate(risk_results: List[dict]) -> dict:
@@ -38,18 +35,18 @@ def evaluate_quality_gate(risk_results: List[dict]) -> dict:
     elevated_ratio = (high + medium) / total
 
     reasons = []
-    if high > MAX_HIGH_RISK_FILES:
+    if high > config.MAX_HIGH_RISK_FILES:
         reasons.append(
-            f"{high} file(s) rated HIGH risk (allowed: {MAX_HIGH_RISK_FILES})."
+            f"{high} file(s) rated HIGH risk (allowed: {config.MAX_HIGH_RISK_FILES})."
         )
-    if elevated_ratio > MAX_ELEVATED_RATIO:
+    if elevated_ratio > config.MAX_ELEVATED_RATIO:
         reasons.append(
             f"{elevated_ratio:.0%} of files are MEDIUM or HIGH risk "
-            f"(allowed: {MAX_ELEVATED_RATIO:.0%})."
+            f"(allowed: {config.MAX_ELEVATED_RATIO:.0%})."
         )
-    if average_score > MAX_AVERAGE_SCORE:
+    if average_score > config.MAX_AVERAGE_SCORE:
         reasons.append(
-            f"Average risk score {average_score:.3f} exceeds {MAX_AVERAGE_SCORE}."
+            f"Average risk score {average_score:.3f} exceeds {config.MAX_AVERAGE_SCORE}."
         )
 
     return {

@@ -1,9 +1,10 @@
 """
 risk.py
 
-Phase 8 (final part) / Phase 13 — Combines the two trained smell-detection
-models with our own analyzer's metrics into one composite LOW/MEDIUM/HIGH
-risk verdict per file.
+Combines the two trained smell-detection models with the analyser's own
+metrics into one composite LOW / MEDIUM / HIGH risk verdict per file.
+
+The weights, caps and cut-offs live in src/config.py.
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ from pathlib import Path
 
 import joblib
 import pandas as pd
+
+from .. import config
 
 MODELS_DIR = Path("src/ml/saved_models")
 
@@ -42,6 +45,10 @@ def _extract_features(row: dict) -> pd.DataFrame:
     return pd.DataFrame([{key: row[key] for key in FEATURE_ORDER}])
 
 
+def _clamp(value: float) -> float:
+    return max(0.0, min(1.0, value))
+
+
 def compute_smell_probabilities(row: dict) -> dict:
     """Return each model's predicted probability that this file has that smell."""
     large_class_model, long_method_model = _load_models()
@@ -56,34 +63,41 @@ def compute_smell_probabilities(row: dict) -> dict:
     }
 
 
-def compute_risk(row: dict) -> dict:
+def compute_risk(
+    row: dict,
+    weights: dict | None = None,
+    thresholds: tuple[float, float] | None = None,
+) -> dict:
     """
-    Combine ML smell predictions with our own analyzer's metrics into
-    one composite risk score (0-1) and a LOW/MEDIUM/HIGH label.
+    Combine ML smell predictions with the analyser's own metrics into one
+    composite risk score (0-1) and a LOW / MEDIUM / HIGH label.
 
-    Weights reflect that our own smell_count covers 4 smell types
-    (naming, magic numbers, duplication, long functions), while the
-    ML models only cover 2 narrow, size-based smells (Large Class,
-    Long Method) — so smell_count is weighted more heavily as the
-    more comprehensive signal.
+    weights and thresholds default to the values in src/config.py. Passing
+    others lets an experiment re-score the same files without editing code.
+
+    The smell count carries the largest weight because it covers four smell
+    types, while the models cover only two narrow, size-based smells.
     """
+    weights = weights or config.RISK_WEIGHTS
+    low_max, medium_max = thresholds or (config.LOW_MAX, config.MEDIUM_MAX)
+
     probs = compute_smell_probabilities(row)
     smell_probability = (probs["large_class_probability"] + probs["long_method_probability"]) / 2
 
-    maintainability_factor = max(0.0, min(1.0, (100 - row["maintainability_index"]) / 100))
-    complexity_factor = max(0.0, min(1.0, row["complexity"] / 20))
-    smell_count_factor = max(0.0, min(1.0, row["code_smells"] / 10))
+    maintainability_factor = _clamp((100 - row["maintainability_index"]) / 100)
+    complexity_factor = _clamp(row["complexity"] / config.COMPLEXITY_CAP)
+    smell_count_factor = _clamp(row["code_smells"] / config.SMELL_COUNT_CAP)
 
     composite_score = (
-        0.25 * smell_probability
-        + 0.25 * maintainability_factor
-        + 0.15 * complexity_factor
-        + 0.35 * smell_count_factor
+        weights["model_probability"] * smell_probability
+        + weights["maintainability"] * maintainability_factor
+        + weights["complexity"] * complexity_factor
+        + weights["smell_count"] * smell_count_factor
     )
 
-    if composite_score < 0.33:
+    if composite_score < low_max:
         risk_label = "LOW"
-    elif composite_score < 0.66:
+    elif composite_score < medium_max:
         risk_label = "MEDIUM"
     else:
         risk_label = "HIGH"
