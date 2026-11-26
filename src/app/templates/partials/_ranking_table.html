@@ -1,0 +1,22 @@
+{# Files ranked from highest to lowest risk. Needs: result #}
+<div class="panel">
+  <h3>Risk ranking</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>#</th><th>File</th><th>Risk</th><th>Level</th><th>Score</th><th>Smells</th><th>LOC</th><th>Complexity</th><th>MI</th></tr>
+      {% for f in result.files %}
+      <tr>
+        <td>{{ f.rank }}</td>
+        <td class="file">{{ f.file }}</td>
+        <td><span class="badge {{ f.risk_label }}">{{ f.risk_label }}</span></td>
+        <td><svg class="bar {{ f.risk_label }}" width="110" height="8"><rect class="fill" width="{{ (f.composite_score * 110) | round | int }}" height="8"></rect></svg></td>
+        <td>{{ f.composite_score }}</td>
+        <td>{{ f.code_smells }}</td>
+        <td>{{ f.loc }}</td>
+        <td>{{ f.complexity }}</td>
+        <td>{{ f.maintainability_index }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>

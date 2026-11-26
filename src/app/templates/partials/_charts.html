@@ -1,0 +1,19 @@
+{# The charts section, hidden behind a button. Needs: charts #}
+{% if charts.distribution %}
+<div class="panel">
+  <h3>Charts</h3>
+  <p>Five views of the same results, one per row: files per risk level, score and complexity per file, smells by type, and what drives each score.</p>
+  <button id="toggle-charts" class="btn" type="button" aria-controls="charts-box" aria-expanded="false">View charts</button>
+</div>
+
+{# plotly.js must load BEFORE the chart fragments below: each one calls Plotly.newPlot as soon as it is parsed. #}
+<script src="/plotly.js"></script>
+<div id="charts-box" class="charts-box">
+  {% if charts.note %}<p class="chart-note">{{ charts.note }}</p>{% endif %}
+  <div class="panel">{{ charts.distribution | safe }}</div>
+  <div class="panel">{{ charts.scores | safe }}</div>
+  <div class="panel">{{ charts.complexity | safe }}</div>
+  <div class="panel">{{ charts.smells | safe }}</div>
+  <div class="panel">{{ charts.heatmap | safe }}</div>
+</div>
+{% endif %}

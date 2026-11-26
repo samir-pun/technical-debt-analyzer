@@ -54,39 +54,8 @@
   <summary>How is the risk score calculated?</summary>
   <p>It is a weighted score: 25% model-predicted smell probability, 25% maintainability, 15% complexity and 35% detected smell count. Below 0.33 is LOW, below 0.66 is MEDIUM, and anything higher is HIGH.</p>
 </details>
+{% endblock %}
 
-<script>
-  const input = document.getElementById("file-input");
-  const zone = document.getElementById("dropzone");
-  const text = document.getElementById("dz-text");
-  const button = document.getElementById("analyse-btn");
-  const form = document.getElementById("upload-form");
-  const overlay = document.getElementById("loading");
-
-  function showFile() {
-    if (input.files.length === 0) { return; }
-    const f = input.files[0];
-    const mb = (f.size / (1024 * 1024)).toFixed(2);
-    text.textContent = f.name + "  (" + mb + " MB)";
-    button.disabled = false;
-  }
-
-  input.addEventListener("change", showFile);
-
-  ["dragenter", "dragover"].forEach(function (ev) {
-    zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add("over"); });
-  });
-  ["dragleave", "drop"].forEach(function (ev) {
-    zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove("over"); });
-  });
-  zone.addEventListener("drop", function (e) {
-    if (e.dataTransfer.files.length > 0) {
-      input.files = e.dataTransfer.files;
-      showFile();
-    }
-  });
-
-  form.addEventListener("submit", function () { overlay.classList.add("show"); });
-  window.addEventListener("pageshow", function () { overlay.classList.remove("show"); });
-</script>
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/upload.js') }}"></script>
 {% endblock %}

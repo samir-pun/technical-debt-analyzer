@@ -1,0 +1,16 @@
+{# Expandable per-file details and recommendations. Needs: result #}
+<div class="panel">
+  <h3>File details and recommendations</h3>
+  {% for f in result.files %}
+  <details {% if loop.first %}open{% endif %}>
+    <summary>{{ f.rank }}. {{ f.file }} <span class="badge {{ f.risk_label }}">{{ f.risk_label }}</span></summary>
+    <p>LOC {{ f.loc }} · complexity {{ f.complexity }} · maintainability index {{ f.maintainability_index }} · model probability: large class {{ f.large_class_probability }}, long method {{ f.long_method_probability }}</p>
+    {% if f.smell_breakdown %}
+    <p>{% for name, count in f.smell_breakdown.items() %}<span class="chip">{{ name }}: {{ count }}</span>{% endfor %}</p>
+    {% else %}
+    <p>No smells detected.</p>
+    {% endif %}
+    <ul>{% for rec in f.recommendations %}<li>{{ rec }}</li>{% endfor %}</ul>
+  </details>
+  {% endfor %}
+</div>

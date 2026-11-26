@@ -1,0 +1,19 @@
+{# Summary cards and the quality gate panel. Needs: result #}
+{% set gate = result.quality_gate %}
+<section class="stats">
+  <div class="stat"><div class="stat-label">Quality gate</div><div class="stat-value"><span class="badge {{ gate.status }}">{{ gate.status }}</span></div></div>
+  <div class="stat"><div class="stat-label">Files analysed</div><div class="stat-value">{{ gate.total_files }}</div></div>
+  <div class="stat"><div class="stat-label">Average risk score</div><div class="stat-value">{{ gate.average_score }}</div></div>
+  <div class="stat"><div class="stat-label">High risk</div><div class="stat-value c-high">{{ gate.high }}</div></div>
+  <div class="stat"><div class="stat-label">Medium risk</div><div class="stat-value c-medium">{{ gate.medium }}</div></div>
+  <div class="stat"><div class="stat-label">Low risk</div><div class="stat-value c-low">{{ gate.low }}</div></div>
+</section>
+
+<div class="panel">
+  <h3>Quality gate</h3>
+  {% if gate.reasons %}
+  <ul>{% for reason in gate.reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+  {% else %}
+  <p>All quality gate rules passed.</p>
+  {% endif %}
+</div>
